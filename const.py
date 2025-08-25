@@ -1,0 +1,25 @@
+DOMAIN = "home-ems"
+
+CONF_NAME = "home-ems"
+CONF_ENTITY_ID = "home_ems"
+
+CONF_PROD = False
+
+CONF_MAX_CURRENT_PER_PHASE = 25
+
+CONF_BOILER_MIN_TEMP = 50
+CONF_BOILER_MAX_TEMP = 62
+
+# External IDs
+CONF_BOILER_ID = "chauffe_eau"
+CONF_BOILER_ALLOW_RESISTOR_ID = "switch.allow_resistor"
+CONF_LINKY_ID = "tic"
+CONF_EV_CHARGER_ID = "charger"
+
+CONF_POOL_ID = "pipool"
+
+# Electrical config
+CONF_POOL_HEATER_PHASE = 1 << 0
+CONF_BOILER_PHASE = 1 << 2
+CONF_EV_CHARGER_PHASE_MONO = 1 << 0
+CONF_EV_CHARGER_MIN_CURRENT = 6
