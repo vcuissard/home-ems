@@ -17,8 +17,8 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         ConfigSwitch(hass, entity_id, name, "EV HC", "ev_hc"),
         ConfigSwitch(hass, entity_id, name, "EV Tri", "ev_tri"),
         ConfigSwitch(hass, entity_id, name, "Pool Force", "pool_force"),
-        ConfigSwitch(hass, entity_id, name, "Boiler Force", "boiler_force"),
-        ConfigSwitch(hass, entity_id, name, "Boiler Boost", "boiler_boost")
+        ConfigSwitch(hass, entity_id, name, "WaterHeater Force", "water_heater_force"),
+        ConfigSwitch(hass, entity_id, name, "WaterHeater Boost", "water_heater_boost")
     ])
 
 class ConfigSwitch(SwitchEntity):

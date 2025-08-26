@@ -154,50 +154,49 @@ class EVCharger(Device):
     #
 
     def activate_if(self, current_export):
-        if not self.is_active():
-            # First, check if cable is unplugged, means we can auto request next one
-            if not self.cable_plugged() and not self.can_auto_request:
-                self.can_auto_request = True
-            if not self.cable_plugged() and config_evcharger_requested(self.hass):
-                config_evcharger_set_requested(self.hass, False)
-            # First, check if we need to force the request
-            # This is needed to avoid the need of clicking the button
-            if self.cable_plugged() and not config_evcharger_requested(self.hass) and self.connector_status() == "Preparing" and self.can_auto_request:
-                self.info("[evcharger] cable connected, automatically request charge")
-                config_evcharger_set_requested(self.hass, True)
-            if not self.should_activate():
-                return False
-            if self.is_forced():
+        # First, check if cable is unplugged, means we can auto request next one
+        if not self.cable_plugged() and not self.can_auto_request:
+            self.can_auto_request = True
+        if not self.cable_plugged() and config_evcharger_requested(self.hass):
+            config_evcharger_set_requested(self.hass, False)
+        # First, check if we need to force the request
+        # This is needed to avoid the need of clicking the button
+        if self.cable_plugged() and not config_evcharger_requested(self.hass) and self.connector_status() == "Preparing" and self.can_auto_request:
+            self.info("[evcharger] cable connected, automatically request charge")
+            config_evcharger_set_requested(self.hass, True)
+        if not self.should_activate():
+            return False
+        if self.is_forced():
+            self.set_max_current(CONF_MAX_CURRENT_PER_PHASE)
+            self.activate()
+            self.info(f"[evchager] start charging (forced) @ {CONF_MAX_CURRENT_PER_PHASE}A")
+            return True
+        elif self.is_hc_hp or config_evcharger_hc(self.hass):
+            # If mode is HP/HC or requested to do HC, force it if HC
+            if loadbalancer_instance(self.hass).linky.is_hc():
+                self.info("[evcharger] activate due to HC")
                 self.set_max_current(CONF_MAX_CURRENT_PER_PHASE)
                 self.activate()
-                self.info(f"[evchager] start charging (forced) @ {CONF_MAX_CURRENT_PER_PHASE}A")
                 return True
-            elif self.is_hc_hp or config_evcharger_hc(self.hass):
-                # If mode is HP/HC or requested to do HC, force it if HC
-                if loadbalancer_instance(self.hass).linky.is_hc():
-                    self.info("[evcharger] activate due to HC")
-                    self.set_max_current(CONF_MAX_CURRENT_PER_PHASE)
-                    self.activate()
-                    return True
+        else:
+            # Need to check if we have enough
+            phases = self.get_phases()
+            if phases == 0x7:
+                # Tri
+                max_export = min(CONF_MAX_CURRENT_PER_PHASE, 
+                                current_export[0], 
+                                current_export[1], 
+                                current_export[2])
             else:
-                # Need to check if we have enough
-                phases = self.get_phases()
-                if phases == 0x7:
-                    # Tri
-                    max_export = min(CONF_MAX_CURRENT_PER_PHASE, 
-                                    current_export[0], 
-                                    current_export[1], 
-                                    current_export[2])
-                else:
-                    # Mono
-                    max_export = min(CONF_MAX_CURRENT_PER_PHASE, current_export[get_phase(phases)])
-                if max_export >= self.get_min_current():
-                    self.set_max_current(max_export)
-                    self.activate()
-                    self.info(f"[evcharger] start charging @ {max_export}A")
-                    return True
-                else:
-                    self.info(f"[evcharger] cannot charge because available current is below {self.get_min_current()}A")
+                # Mono
+                max_export = min(CONF_MAX_CURRENT_PER_PHASE, current_export[get_phase(phases)])
+            if max_export >= self.get_min_current():
+                self.set_max_current(max_export)
+                self.activate()
+                self.info(f"[evcharger] start charging @ {max_export}A")
+                return True
+            else:
+                self.info(f"[evcharger] cannot charge because available current is below {self.get_min_current()}A")
         return False
 
     def update(self, current_export, current_import):

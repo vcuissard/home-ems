@@ -1,0 +1,9 @@
+{
+    "name": "Home EMS",
+    "content_in_root": false,
+    "domains": ["home_ems"],
+    "country": "US",
+    "homeassistant": "2025.8.0",
+    "render_readme": true,
+    "icon": "mdi:home-lightning-bolt"
+  }

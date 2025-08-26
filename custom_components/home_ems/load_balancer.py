@@ -1,6 +1,6 @@
 import logging
 import copy
-from .devices.boiler import Boiler
+from .devices.water_heater import WaterHeater
 from .devices.linky import Linky
 from .devices.evcharger import EVCharger
 from .devices.pool_heater import PoolHeater
@@ -14,12 +14,12 @@ class LoadBalancer:
     def __init__(self, hass, config_entry):
         self.hass = hass
         self.config_entry = config_entry
-        self.boiler = Boiler(hass, CONF_BOILER_ID, CONF_BOILER_ALLOW_RESISTOR_ID, CONF_BOILER_PHASE)
+        self.water_heater = WaterHeater(hass, CONF_WATER_HEATER_ID, CONF_WATER_HEATER_ALLOW_RESISTOR_ID, CONF_WATER_HEATER_PHASE)
         self.linky = Linky(hass, CONF_LINKY_ID)
         self.evcharger = EVCharger(hass, CONF_EV_CHARGER_ID, CONF_EV_CHARGER_PHASE_MONO)
         self.pool_heater = PoolHeater(hass, CONF_POOL_HEATER_PHASE)        
-        self.devices = [ self.boiler, self.evcharger, self.pool_heater ]
-        self.devices_for_update = [ self.boiler, self.evcharger, self.pool_heater ]
+        self.devices = [ self.water_heater, self.evcharger, self.pool_heater ]
+        self.devices_for_update = [ self.water_heater, self.evcharger, self.pool_heater ]
 
     def late_init(self):
         for device in self.devices:

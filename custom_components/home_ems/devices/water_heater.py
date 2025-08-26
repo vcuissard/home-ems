@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from .device import Device
 from ..utils import *
 
-class Boiler(Device):
+class WaterHeater(Device):
 
     def __init__(self, hass, entity, entity_resistor, phases):
         super().__init__(hass, phases)
@@ -20,7 +20,7 @@ class Boiler(Device):
         self.set_force_pv(False)
 
     #
-    # Boiler info
+    # WaterHeater info
     #
 
     def get_water_temperature(self):
@@ -40,13 +40,13 @@ class Boiler(Device):
             domain,
             action,
             {
-                "entity_id": f"{domain}.{CONF_BOILER_ID}",
+                "entity_id": f"{domain}.{CONF_WATER_HEATER_ID}",
                 key: self.needed_temperature
             })
     
     def set_boost(self, value):
         if self.boost != value:
-            self.info(f"[boiler] set boost {value}")
+            self.info(f"[water_heater] set boost {value}")
             self.boost = value
             domain = "number" if CONF_PROD == True else "input_number"
             action = "set_value"
@@ -56,7 +56,7 @@ class Boiler(Device):
                 domain,
                 action,
                 {
-                    "entity_id": f"{domain}.{CONF_BOILER_ID}_boost_mode_duration",
+                    "entity_id": f"{domain}.{CONF_WATER_HEATER_ID}_boost_mode_duration",
                     key: value
                 })
         
@@ -74,11 +74,15 @@ class Boiler(Device):
 
     def compute_needed_temp(self):
         now = datetime.now()
+        #
         # Compute at what time water should be OK if we start now
-        ready = now + timedelta(minutes=self.time_to_reach(CONF_BOILER_MAX_TEMP))
-        # Boost ? => max
+        #
+        ready = now + timedelta(minutes=self.time_to_reach(CONF_WATER_HEATER_MAX_TEMP))
+
         if self.boost:
-            return CONF_BOILER_MAX_TEMP
+            # If Boost ? => max
+            return CONF_WATER_HEATER_MAX_TEMP            
+
         if self.is_hc_hp:
             #
             # In HC/HP, we wait for HC signal and we compute when water will be
@@ -88,31 +92,31 @@ class Boiler(Device):
             if loadbalancer_instance(self.hass).linky.is_hc():
                 if now.hour >= 0 and now.hour < 8:                
                     if ready.hour > 7:
-                        self.info(f"[boiler] now it is time to boil water because we need {self.time_to_reach(CONF_BOILER_MAX_TEMP)} min")
-                        return CONF_BOILER_MAX_TEMP
+                        self.info(f"[water_heater] now it is time to boil water because we need {self.time_to_reach(CONF_WATER_HEATER_MAX_TEMP)} min")
+                        return CONF_WATER_HEATER_MAX_TEMP
         elif self.get_force_pv():
             # In solar mode, if force pv signal is on then we need max
-            return CONF_BOILER_MAX_TEMP
+            return CONF_WATER_HEATER_MAX_TEMP
         
         # In any case if forced => max
         if self.is_forced():
-            return CONF_BOILER_MAX_TEMP
+            return CONF_WATER_HEATER_MAX_TEMP
 
         #
         # Last resort: we need at least 55 @ 18h00
         #
         if self.get_water_temperature() < 55.0 and now.hour > 14 and ready.hour > 18:
-            self.info(f"[boiler] 6pm rule: now it is time to boil water because we need {self.time_to_reach(CONF_BOILER_MAX_TEMP)} min")
-            return CONF_BOILER_MAX_TEMP
+            self.info(f"[water_heater] 6pm rule: now it is time to boil water because we need {self.time_to_reach(CONF_WATER_HEATER_MAX_TEMP)} min")
+            return CONF_WATER_HEATER_MAX_TEMP
             
-        return CONF_BOILER_MIN_TEMP
+        return CONF_WATER_HEATER_MIN_TEMP
 
     def get_needed_temperature(self):
         return self.needed_temperature
     
     def set_needed_temperature(self, needed_temperature):
         if needed_temperature != self.needed_temperature:
-            self.debug(f"[boiler] set_temp:{needed_temperature}")
+            self.debug(f"[water_heater] set_temp:{needed_temperature}")
             self.needed_temperature = needed_temperature
             self.set_wanted_temperature(self.needed_temperature)
 
@@ -127,14 +131,15 @@ class Boiler(Device):
                 self.hass,
                 domain,
                 f"turn_{'on' if force else 'off'}",
-                { "entity_id": f"{domain}.{CONF_BOILER_ID}_pv" })
+                { "entity_id": f"{domain}.{CONF_WATER_HEATER_ID}_pv" })
 
     #
     # Logic
     #
 
     def still_needed(self):
-        return self.get_water_temperature() < self.needed_temperature
+        # Always ON
+        return True
 
     def activate(self):
         super().activate()
@@ -143,84 +148,71 @@ class Boiler(Device):
     def deactivate(self):
         super().deactivate()
         self.set_force_pv(False)
-        self.set_needed_temperature(CONF_BOILER_MIN_TEMP)
-        config_boiler_set_forced(self.hass, False)
+        self.set_needed_temperature(CONF_WATER_HEATER_MIN_TEMP)
+        config_water_heater_set_forced(self.hass, False)
         self.set_boost(0)
-        config_boiler_set_boost(self.hass, False)
+        config_water_heater_set_boost(self.hass, False)
 
     def should_activate(self):
-        temp = self.get_water_temperature()
-        needed_temp = self.compute_needed_temp()
-        if temp < needed_temp:
-            return True
-        return False
+        # Always ON
+        return True
 
     def is_forced(self):
-        return config_boiler_forced(self.hass)
+        return config_water_heater_forced(self.hass)
 
     #
     # Interface with LoadBalancer
     #
 
     def activate_if(self, current_export):
-        if config_boiler_boost(self.hass) and not self.boost > 0:
-            self.set_boost(1)
-            config_boiler_set_forced(self.hass, True)
-        if not self.is_active() and (self.should_activate() or self.is_forced()):
-            if self.is_forced():
-                self.activate()
-                self.info("[boiler] start (forced)")
-                return True
-            elif self.is_hc_hp and loadbalancer_instance(self.hass).linky.is_hc():
-                self.activate()
-                self.info(f"[boiler] start (HC)")
-            elif not self.is_hc_hp:
-                # Need to check if we have enough
-                phases = self.get_phases()
-                # Mono only
-                max_export = current_export[get_phase(phases)]
-                if max_export >= self.get_min_current():
-                    self.activate()
-                    self.info(f"[boiler] start (available: {max_export}A)")
-                    return True
+        # Always ON
+        if not self.is_active():
+            self.activate()
+            return True
         return False
 
-    def update(self, current_export, current_import):
-        # Update needed temp
+    def update(self, current_export, current_import):        
+        if not self.is_hc_hp:
+            #
+            # Solar mode: manage pv signal
+            #
+            phases = self.get_phases()        
+            # Mono only
+            max_export = current_export[get_phase(phases)]        
+            #
+            # Check import/export status
+            #
+            actual_import = current_import[get_phase(phases)]
+            if actual_import > 6 and self.get_force_pv():
+                # If we import too much let's remove the force pv signal
+                # This will stop water heater only in 30min (Aeromax 5)
+                self.info(f"[water_heater] disable pv - importing to much")
+                self.set_force_pv(False)
+                return True
+            elif max_export >= self.get_max_current() and not self.get_force_pv():
+                # We have now enough solar production, let's raise PV signal
+                self.set_force_pv(True)            
+                self.info(f"[water_heater] force pv")
+                return True
+
+        #
+        # Is boost needed?
+        #
+        if config_water_heater_boost(self.hass) and not self.boost > 0:
+            self.set_boost(1)
+            config_water_heater_set_forced(self.hass, True)
+
+
+        #
+        # Now we can update needed temperature
+        #
         self.set_needed_temperature(self.compute_needed_temp())
 
-        if config_boiler_boost(self.hass) and not self.boost > 0:
-            self.set_boost(1)
-            config_boiler_set_forced(self.hass, True)
-
-        # Still needed?
-        if not self.still_needed():
-            self.info(f"[boiler] no longer needed, deactivate")
-            self.deactivate()
-            return True            
-
-        # Nothing more in HC/HP mode or if mode is forced
-        if self.is_hc_hp or self.is_forced():
-            return False
-
-        #
-        # Trigger PV only when we export enough power
-        #
-        
-        phases = self.get_phases()
-        
-        # Mono only
-        max_export = current_export[get_phase(phases)]
-        
-        # Check that we do not import to much        
-        actual_import = current_import[get_phase(phases)]
-        if actual_import > 6 and self.get_force_pv():
-            self.info(f"[boiler] disable pv - importing to much")
+        if self.needed_temperature <= self.get_water_temperature():
             self.set_force_pv(False)
-            return True
-        elif actual_import < 6 and max_export >= self.get_max_current() and not self.get_force_pv():
-            self.set_force_pv(True)            
-            self.info(f"[boiler] force pv")
-            return True
+            self.set_needed_temperature(CONF_WATER_HEATER_MIN_TEMP)
+            config_boiler_set_forced(self.hass, False)
+            self.set_boost(0)
+            config_boiler_set_boost(self.hass, False)
 
         return False

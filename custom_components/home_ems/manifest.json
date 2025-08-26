@@ -10,7 +10,7 @@
     "iot_class": "local_polling",
     "config_flow": true,
     "single_config_entry": true,
-    "icon": "mdi:ev-station",
+    "icon": "mdi:home-lightning-bolt",
     "supports_diagnostics": true
   }
   

@@ -96,15 +96,15 @@ def config_loadbalancer_mode(hass):
 def config_loadbalancer_mode_is_hc_hp(hass):
     return config_loadbalancer_mode(hass) == "HC/HP"
 
-def config_boiler_boost(hass):
-    return get_local_switch(hass, "boiler_boost")
+def config_water_heater_boost(hass):
+    return get_local_switch(hass, "water_heater_boost")
 
-def config_boiler_set_boost(hass, value):
-    return set_local_switch(hass, "boiler_boost", value)
+def config_water_heater_set_boost(hass, value):
+    return set_local_switch(hass, "water_heater_boost", value)
 
-def config_boiler_forced(hass):
-    return get_local_switch(hass, "boiler_force")
+def config_water_heater_forced(hass):
+    return get_local_switch(hass, "water_heater_force")
 
-def config_boiler_set_forced(hass, value):
-    set_local_switch(hass, "boiler_force", value)
+def config_water_heater_set_forced(hass, value):
+    set_local_switch(hass, "water_heater_force", value)
 
