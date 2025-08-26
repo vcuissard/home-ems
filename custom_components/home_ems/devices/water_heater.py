@@ -211,8 +211,8 @@ class WaterHeater(Device):
         if self.needed_temperature <= self.get_water_temperature():
             self.set_force_pv(False)
             self.set_needed_temperature(CONF_WATER_HEATER_MIN_TEMP)
-            config_boiler_set_forced(self.hass, False)
+            config_water_heater_set_forced(self.hass, False)
             self.set_boost(0)
-            config_boiler_set_boost(self.hass, False)
+            config_water_heater_set_boost(self.hass, False)
 
         return False
