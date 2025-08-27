@@ -9,4 +9,9 @@ class Linky(PowerInfo):
         return "[linky]"
 
     def is_hc(self):
-        return int(self.get_state('sensor', 'ntarf')) == 1
+        ntarf = 0
+        try:
+            ntarf = int(self.get_state('sensor', 'ntarf'))
+        except ValueError:
+            ntarf = 0            
+        return ntarf == 1
