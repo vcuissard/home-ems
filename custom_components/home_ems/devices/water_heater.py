@@ -113,7 +113,7 @@ class WaterHeater(Device):
         #
         # Last resort: we need at least 55 @ 18h00
         #
-        if self.get_water_temperature() < 55.0 and now.hour > 14 and (ready.hour > 18 or ready.hour < 14):
+        if self.get_water_temperature() < 55.0 and now.hour > 14 and now.hour < 18 and (ready.hour > 18 or ready.hour < 14):
             if self.get_needed_temperature() != CONF_WATER_HEATER_MAX_TEMP:
                 self.info(f"6pm rule: now it is time to boil water because we need {self.time_to_reach(CONF_WATER_HEATER_MAX_TEMP)} min")
             return CONF_WATER_HEATER_MAX_TEMP
