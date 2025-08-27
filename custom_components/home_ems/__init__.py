@@ -3,8 +3,6 @@ import logging
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers.service import async_register_admin_service
-from homeassistant.helpers.script import Script
 from homeassistant.core import Context
 from homeassistant.components.button import ButtonEntity
 from .const import *
@@ -14,34 +12,6 @@ _LOGGER = logging.getLogger(__name__)
 
 # Define the config schema
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
-
-async def async_setup(hass: HomeAssistant, config: dict):
-    
-    sequence = [
-        {"service": "ocpp.clear_profile", "data": {}},
-        {"delay": {"seconds": 30}},
-        {
-            "service": "ocpp.set_charge_rate",
-            "data": {
-                "custom_profile": {
-                    "chargingProfileId": 10,
-                    "stackLevel": 2,
-                    "chargingProfileKind": "Relative",
-                    "chargingProfilePurpose": "TxDefaultProfile",
-                    "chargingSchedule": {
-                        "chargingRateUnit": "A",
-                        "chargingSchedulePeriod": [
-                            {"startPeriod": 0, "limit": 25}
-                        ]
-                    }
-                }
-            }
-        }
-    ]
-    _LOGGER.debug(f"Service called {sequence}")
-    script = Script(hass, sequence, "Reset OCPP EVSE", domain=DOMAIN)
-    hass.async_create_task(script.async_run(context=Context()))
-    return True
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     hass.data[DOMAIN] = {
