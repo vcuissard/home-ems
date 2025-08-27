@@ -12,10 +12,14 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     async_add_entities([
         PersistentConfigSwitch(hass, entity_id, name, "LoadBalancer", "loadbalancer", EntityCategory.CONFIG),
         PersistentConfigSwitch(hass, entity_id, name, "Holidays", "holidays", EntityCategory.CONFIG),
+        PersistentConfigSwitch(hass, entity_id, name, "Development", "dev", EntityCategory.CONFIG),
         ConfigSwitch(hass, entity_id, name, "EV Force", "ev_force"),
         ConfigSwitch(hass, entity_id, name, "EV Request", "ev_request"),
         ConfigSwitch(hass, entity_id, name, "EV HC", "ev_hc"),
         ConfigSwitch(hass, entity_id, name, "EV Tri", "ev_tri"),
+        ConfigSwitch(hass, entity_id, name, "CRO Force", "cro_force"),
+        ConfigSwitch(hass, entity_id, name, "CRO Request", "cro_request"),
+        ConfigSwitch(hass, entity_id, name, "CRO HC", "cro_hc"),
         ConfigSwitch(hass, entity_id, name, "Pool Force", "pool_force"),
         ConfigSwitch(hass, entity_id, name, "WaterHeater Force", "water_heater_force"),
         ConfigSwitch(hass, entity_id, name, "WaterHeater Boost", "water_heater_boost")

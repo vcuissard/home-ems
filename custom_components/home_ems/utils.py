@@ -57,17 +57,14 @@ def set_local_switch(hass, name, value):
         { "entity_id": entity_id }
     )
 
+def config_dev(hass):
+    return get_local_switch(hass, "dev")
+
 def config_evcharger_is_tri(hass):
     return get_local_switch(hass, "ev_tri")
 
 def config_evcharger_set_tri(hass, value):
     return set_local_switch(hass, "ev_tri", value)
-
-def config_evcharger_requested(hass):
-    return get_local_switch(hass, "ev_request")
-
-def config_evcharger_set_requested(hass, value):
-    set_local_switch(hass, "ev_request", value)
 
 def config_evcharger_hc(hass):
     return get_local_switch(hass, "ev_hc")
@@ -86,6 +83,24 @@ def config_evcharger_forced(hass):
 
 def config_evcharger_set_forced(hass, value):
     set_local_switch(hass, "ev_force", value)
+
+def config_cro_hc(hass):
+    return get_local_switch(hass, "cro_hc")
+
+def config_cro_set_hc(hass, value):
+    set_local_switch(hass, "cro_hc", value)
+
+def config_cro_requested(hass):
+    return get_local_switch(hass, "cro_request")
+
+def config_cro_set_requested(hass, value):
+    return set_local_switch(hass, "cro_request", value)
+
+def config_cro_forced(hass):
+    return get_local_switch(hass, "cro_force")
+
+def config_cro_set_forced(hass, value):
+    set_local_switch(hass, "cro_force", value)
 
 def config_loadbalancer_enabled(hass):
     return get_local_switch(hass, 'loadbalancer')

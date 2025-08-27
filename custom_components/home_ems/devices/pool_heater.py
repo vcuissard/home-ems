@@ -7,6 +7,13 @@ class PoolHeater(Device):
     def __init__(self, hass, phases):
         super().__init__(hass, phases)
         self.target_temperature = 29.5        
+        # Wait at least 30min after activation before deactivating it
+        self.delay_min_after_activation = 30
+        # Wait at least 30min after deactivation before activating it
+        self.delay_min_after_deactivation = 30
+
+    def logger_name(self):
+        return "[pool heater]"
 
     #
     # Pool info
@@ -34,34 +41,36 @@ class PoolHeater(Device):
 
     def should_activate(self):
         temp = self.pool_water_temperature()
-        return temp < self.min_temperature()
+        return self.can_activate() and temp < self.min_temperature()
 
-    def activate_if(self, current_export):
-        if not self.is_active() and self.should_activate():
+    def activate_if(self, power_phases):
+        if self.should_activate():
             # Need to check if we have enough
             phases = self.get_phases()
             # Mono only
-            max_export = current_export[get_phase(phases)]
-            if max_export >= self.get_min_current():
+            power = power_phases[get_phase(phases)]
+            if power < 0 and abs(power) >= self.get_min_power():
                 self.activate()
-                self.info(f"[pool heater] start (available: {max_export}A)")
-                return True
+                self.info(f"start (available: {abs(power)}W)")
+                return CONF_POOL_HEATER_WAITING_TIME
             now = datetime.now()
             if now.hour >= 12 and now.hour <= 15:
                 self.activate()
-                self.info(f"[pool heater] force start")
-                return True
-        return False
+                self.info(f"force start")
+                return CONF_POOL_HEATER_WAITING_TIME
+        return 0
 
-    def update(self, current_export, current_import):
+    def update(self, power_phases):
         if self.pool_water_temperature() >= self.min_temperature():
             self.count_above += 1
         else:
             self.count_above = 0
         
-        if self.count_above > 60:
-            self.info(f"[pool heater] no longer needed")
+        if self.count_above > 60 and self.can_deactivate():
+            self.info(f"no longer needed")
             self.deactivate()
-            return True
+            return CONF_POOL_HEATER_WAITING_TIME
 
-        return False
+        # TODO check how to check power
+
+        return 0

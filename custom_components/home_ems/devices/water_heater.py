@@ -4,17 +4,25 @@ from ..utils import *
 
 class WaterHeater(Device):
 
-    def __init__(self, hass, entity, entity_resistor, phases):
+    def __init__(self, hass, entity, phases):
         super().__init__(hass, phases)
         self.entity = entity
-        self.entity_resistor = entity_resistor
         self.phases = phases
-        self.min_current = 3
-        self.max_current = 5
+        self.min_power = CONF_WATER_HEATER_MIN_POWER
+        self.max_power = CONF_WATER_HEATER_MAX_POWER
         self.force_pv = None
         self.needed_temperature = 0
         self.boost = 0
-    
+        self.suspended = False
+        # Wait at least 10min after activation before deactivating it
+        self.delay_min_after_activation = 10
+        # Wait at least 10min after deactivation before activating it
+        self.delay_min_after_deactivation = 10
+        self.next_force_pv = datetime.now()
+
+    def logger_name(self):
+        return "[water heater]"
+
     def late_init(self):
         super().late_init()
         self.set_force_pv(False)
@@ -27,7 +35,7 @@ class WaterHeater(Device):
         return float(self.get_state("sensor", "middle_water_temperature"))
 
     def set_wanted_temperature(self, value):
-        if CONF_PROD == True:
+        if not config_dev(self.hass) == True:
             domain = "water_heater"
             action = "set_temperature"
             key = "temperature"
@@ -40,15 +48,15 @@ class WaterHeater(Device):
             domain,
             action,
             {
-                "entity_id": f"{domain}.{CONF_WATER_HEATER_ID}",
+                "entity_id": f"{domain}.{self.entity}",
                 key: self.needed_temperature
             })
     
     def set_boost(self, value):
         if self.boost != value:
-            self.info(f"[water_heater] set boost {value}")
+            self.info(f"set boost {value}")
             self.boost = value
-            domain = "number" if CONF_PROD == True else "input_number"
+            domain = "number" if not config_dev(self.hass) == True else "input_number"
             action = "set_value"
             key = "value"
             call_async(
@@ -56,7 +64,7 @@ class WaterHeater(Device):
                 domain,
                 action,
                 {
-                    "entity_id": f"{domain}.{CONF_WATER_HEATER_ID}_boost_mode_duration",
+                    "entity_id": f"{domain}.{self.entity}_boost_mode_duration",
                     key: value
                 })
         
@@ -92,7 +100,7 @@ class WaterHeater(Device):
             if loadbalancer_instance(self.hass).linky.is_hc():
                 if now.hour >= 0 and now.hour < 8:                
                     if ready.hour > 7:
-                        self.info(f"[water_heater] now it is time to boil water because we need {self.time_to_reach(CONF_WATER_HEATER_MAX_TEMP)} min")
+                        self.info(f"now it is time to boil water because we need {self.time_to_reach(CONF_WATER_HEATER_MAX_TEMP)} min")
                         return CONF_WATER_HEATER_MAX_TEMP
         elif self.get_force_pv():
             # In solar mode, if force pv signal is on then we need max
@@ -105,8 +113,9 @@ class WaterHeater(Device):
         #
         # Last resort: we need at least 55 @ 18h00
         #
-        if self.get_water_temperature() < 55.0 and now.hour > 14 and ready.hour > 18:
-            self.info(f"[water_heater] 6pm rule: now it is time to boil water because we need {self.time_to_reach(CONF_WATER_HEATER_MAX_TEMP)} min")
+        if self.get_water_temperature() < 55.0 and now.hour > 14 and (ready.hour > 18 or ready.hour < 14):
+            if self.get_needed_temperature() != CONF_WATER_HEATER_MAX_TEMP:
+                self.info(f"6pm rule: now it is time to boil water because we need {self.time_to_reach(CONF_WATER_HEATER_MAX_TEMP)} min")
             return CONF_WATER_HEATER_MAX_TEMP
             
         return CONF_WATER_HEATER_MIN_TEMP
@@ -116,7 +125,7 @@ class WaterHeater(Device):
     
     def set_needed_temperature(self, needed_temperature):
         if needed_temperature != self.needed_temperature:
-            self.debug(f"[water_heater] set_temp:{needed_temperature}")
+            self.debug(f"set_temp:{needed_temperature}")
             self.needed_temperature = needed_temperature
             self.set_wanted_temperature(self.needed_temperature)
 
@@ -126,12 +135,17 @@ class WaterHeater(Device):
     def set_force_pv(self, force):
         if force != self.force_pv:
             self.force_pv = force
-            domain = "switch" if CONF_PROD == True else "input_boolean"
+            if force:
+                self.next_force_pv = datetime.now() + timedelta(hours=14)
+            domain = "switch" if not config_dev(self.hass) == True else "input_boolean"
             call_async(
                 self.hass,
                 domain,
                 f"turn_{'on' if force else 'off'}",
-                { "entity_id": f"{domain}.{CONF_WATER_HEATER_ID}_pv" })
+                { "entity_id": f"{domain}.{self.entity}_pv" })
+
+    def can_force_pv(self):
+        return datetime.now() > self.next_force_pv
 
     #
     # Logic
@@ -144,6 +158,8 @@ class WaterHeater(Device):
     def activate(self):
         super().activate()
         self.set_needed_temperature(self.compute_needed_temp())
+        self.suspended = False
+
 
     def deactivate(self):
         super().deactivate()
@@ -152,6 +168,7 @@ class WaterHeater(Device):
         config_water_heater_set_forced(self.hass, False)
         self.set_boost(0)
         config_water_heater_set_boost(self.hass, False)
+        self.suspended = False
 
     def should_activate(self):
         # Always ON
@@ -164,36 +181,44 @@ class WaterHeater(Device):
     # Interface with LoadBalancer
     #
 
-    def activate_if(self, current_export):
+    def activate_if(self, power_phases):
         # Always ON
         if not self.is_active():
             self.activate()
-            return True
-        return False
+            return CONF_WATER_HEATER_WAITING_TIME
+        return 0
 
-    def update(self, current_export, current_import):        
+    def update(self, power_phases):        
+        if not self.suspended and self.get_water_temperature() >= self.needed_temperature:
+            self.set_force_pv(False)
+            self.set_needed_temperature(CONF_WATER_HEATER_MIN_TEMP)
+            config_water_heater_set_forced(self.hass, False)
+            self.set_boost(0)
+            config_water_heater_set_boost(self.hass, False)
+            self.suspended = True
+            return CONF_WATER_HEATER_WAITING_TIME
+
         if not self.is_hc_hp:
             #
             # Solar mode: manage pv signal
             #
             phases = self.get_phases()        
             # Mono only
-            max_export = current_export[get_phase(phases)]        
+            power = power_phases[get_phase(phases)]        
             #
             # Check import/export status
             #
-            actual_import = current_import[get_phase(phases)]
-            if actual_import > 6 and self.get_force_pv():
+            if power > 3000 and self.get_force_pv():
                 # If we import too much let's remove the force pv signal
                 # This will stop water heater only in 30min (Aeromax 5)
-                self.info(f"[water_heater] disable pv - importing to much")
+                self.info(f"disable pv - importing to much")
                 self.set_force_pv(False)
-                return True
-            elif max_export >= self.get_max_current() and not self.get_force_pv():
-                # We have now enough solar production, let's raise PV signal
+                return CONF_WATER_HEATER_WAITING_TIME
+            elif not self.get_force_pv() and self.can_force_pv() and power < 0 and abs(power) >= self.get_max_power():
+                # We have now enough solar production, let's raise PV signal. (once per day)
                 self.set_force_pv(True)            
-                self.info(f"[water_heater] force pv")
-                return True
+                self.info(f"force pv")
+                return CONF_WATER_HEATER_WAITING_TIME
 
         #
         # Is boost needed?
@@ -202,17 +227,12 @@ class WaterHeater(Device):
             self.set_boost(1)
             config_water_heater_set_forced(self.hass, True)
 
-
         #
         # Now we can update needed temperature
         #
         self.set_needed_temperature(self.compute_needed_temp())
 
-        if self.needed_temperature <= self.get_water_temperature():
-            self.set_force_pv(False)
-            self.set_needed_temperature(CONF_WATER_HEATER_MIN_TEMP)
-            config_water_heater_set_forced(self.hass, False)
-            self.set_boost(0)
-            config_water_heater_set_boost(self.hass, False)
+        if self.get_water_temperature() < self.needed_temperature:
+            self.suspended = False
 
-        return False
+        return 0

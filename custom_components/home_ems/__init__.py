@@ -51,7 +51,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     async def scheduler_loop():
         hass.data[DOMAIN]["load_balancer"].late_init()
         while True:
-            await asyncio.sleep(15 if CONF_PROD == True else 5)
+            await asyncio.sleep(15 if not config_dev(hass) == True else 5)
             await hass.data[DOMAIN]["load_balancer"].run(hass)
     hass.loop.create_task(scheduler_loop())
     return True

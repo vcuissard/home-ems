@@ -42,4 +42,3 @@ class HomeEMSSensor(SensorEntity):
 
     async def async_update(self):
         """Fetch new state data for the sensor asynchronously."""
-        _LOGGER.info("Async update of Sensor")
