@@ -20,7 +20,6 @@ class EVCharger(Device):
 
     def late_init(self):
         super().late_init()
-        call_async(self.hass, "ocpp", "clear_profile", { })
         self.stop_transaction()
         self.update_max_power()
 

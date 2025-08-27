@@ -63,7 +63,7 @@ class LoadBalancer:
         # All logic need device and linky to update. Depending on the action
         # a longer wait might be required
         if now < self.next_run:
-            _LOGGER.debug(f"[loadbalancer] too early (now={now} next_run={self.next_run})")
+            _LOGGER.debug(f"[loadbalancer] too early next_run={self.next_run})")
             if config_dev(hass):
                 self.next_run = now
             return
