@@ -15,6 +15,7 @@ class EVCharger(Device):
         # Wait at least 10min after deactivation before activating it
         self.delay_min_after_deactivation = 10
         self.last_connector_status = ""
+        self.activate_first = False
 
     def logger_name(self):
         return "[evcharger]"
@@ -53,7 +54,7 @@ class EVCharger(Device):
         )
 
     def update_max_power(self):
-        limit = self.max_power * 3 if config_evcharger_is_tri(self.hass) else self.max_power
+        limit = self.max_power * 3
         self.info(f"update_max_power {limit}W")
         if not config_dev(self.hass):            
             # Prepare the data for the OCPP set_charge_rate service
@@ -162,6 +163,7 @@ class EVCharger(Device):
     def activate(self):
         super().activate()
         self.can_auto_request = False
+        self.activate_first = True
         self.start_transaction()
 
     def deactivate(self):
@@ -173,6 +175,7 @@ class EVCharger(Device):
         self.stop_transaction()
         self.max_power = 0
         self.update_max_power()
+        self.activate_first = False
 
     def still_needed(self):
         status = self.connector_status()
@@ -247,6 +250,13 @@ class EVCharger(Device):
         if not self.still_needed() and self.can_deactivate():
             self.info(f"no longer needed, deactivate")
             self.deactivate()
+            return CONF_EV_CHARGER_WAITING_TIME
+
+        # Ensure power was sent
+        if self.activate_first:
+            self.info(f"charger is in {self.connector_status()} state after activation => set power")
+            self.update_max_power()
+            self.activate_first = False
             return CONF_EV_CHARGER_WAITING_TIME
 
         # Nothing to be done if HC/HP or is_forced        
