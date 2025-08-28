@@ -35,22 +35,24 @@ class WaterHeater(Device):
         return float(self.get_state("sensor", "middle_water_temperature"))
 
     def set_wanted_temperature(self, value):
-        if not config_dev(self.hass) == True:
-            domain = "water_heater"
-            action = "set_temperature"
-            key = "temperature"
+        if not config_dev(self.hass):
+            call_async(
+                self.hass,
+                "water_heater",
+                "set_temperature",
+                {
+                    "entity_id": f"water_heater.{self.entity}",
+                    "temperature": value
+                })
         else:
-            domain = "input_number"
-            action = "set_value"
-            key = "value"
-        call_async(
-            self.hass,
-            domain,
-            action,
-            {
-                "entity_id": f"{domain}.{self.entity}",
-                key: self.needed_temperature
-            })
+            call_async(
+                self.hass,
+                "input_number",
+                "set_value",
+                {
+                    "entity_id": f"input_number.{self.entity}",
+                    "value": value
+                })
     
     def set_boost(self, value):
         if self.boost != value:
@@ -100,7 +102,8 @@ class WaterHeater(Device):
             if loadbalancer_instance(self.hass).linky.is_hc():
                 if now.hour >= 0 and now.hour < 8:                
                     if ready.hour > 7:
-                        self.info(f"now it is time to boil water because we need {self.time_to_reach(CONF_WATER_HEATER_MAX_TEMP)} min")
+                        if self.get_needed_temperature() != CONF_WATER_HEATER_MAX_TEMP:
+                            self.info(f"now it is time to boil water because we need {self.time_to_reach(CONF_WATER_HEATER_MAX_TEMP)} min")
                         return CONF_WATER_HEATER_MAX_TEMP
         elif self.get_force_pv():
             # In solar mode, if force pv signal is on then we need max

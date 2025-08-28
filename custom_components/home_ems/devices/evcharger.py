@@ -14,6 +14,7 @@ class EVCharger(Device):
         self.delay_min_after_activation = 10
         # Wait at least 10min after deactivation before activating it
         self.delay_min_after_deactivation = 10
+        self.last_connector_status = ""
 
     def logger_name(self):
         return "[evcharger]"
@@ -175,14 +176,14 @@ class EVCharger(Device):
 
     def still_needed(self):
         status = self.connector_status()
-        if status == "SuspendedEV":
-            self.info("car stopped the charge, most likely full")
-#            self.can_auto_request = False
-#            return False
-        if status == "Faulted":
-            self.info("fault, need to reset")
-            # TODO
-            return False
+        if status != self.last_connector_status:
+            last_connector_status = status
+            if status == "SuspendedEV":
+                self.info("car stopped the charge, most likely full")
+            if status == "Faulted":
+                self.info("fault, need to reset")
+                # TODO
+                return False
         if not self.cable_plugged():
             self.info("cable disconnected")
             self.can_auto_request = True
