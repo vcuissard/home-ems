@@ -192,7 +192,7 @@ class WaterHeater(Device):
         return 0
 
     def update(self, power_phases):        
-        if not self.suspended and self.get_water_temperature() >= self.needed_temperature:
+        if not self.suspended and self.get_water_temperature() >= min(60, self.needed_temperature):
             self.set_force_pv(False)
             self.set_needed_temperature(CONF_WATER_HEATER_MIN_TEMP)
             config_water_heater_set_forced(self.hass, False)
