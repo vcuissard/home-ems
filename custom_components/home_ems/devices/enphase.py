@@ -11,7 +11,7 @@ class Enphase(PowerInfo):
 
     def get_phases_power(self):
         if config_dev(self.hass):
-            return [ 
+            return [
                 float(self.get_state('sensor', 'pinst1')),
                 float(self.get_state('sensor', 'pinst2')),
                 float(self.get_state('sensor', 'pinst3'))

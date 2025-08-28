@@ -14,6 +14,7 @@ class CRO(Device):
         self.delay_min_after_activation = 10
         # Wait at least 10min after deactivation before activating it
         self.delay_min_after_deactivation = 10
+        self.last_cro_power = 0.0
 
     def logger_name(self):
         return "[cro]"
@@ -23,7 +24,13 @@ class CRO(Device):
     #
 
     def cro_get_power(self):
-        return float(self.get_state("number" if not config_dev(self.hass) else "input_number", "power"))
+        ret = 0.0
+        try:
+            ret = float(self.get_state("number" if not config_dev(self.hass) else "input_number", "power"))
+        except ValueError:
+            ret = self.last_cro_power
+        self.last_cro_power = ret
+        return ret
 
     def cro_set_status(self, status):
         domain = "switch" if not config_dev(self.hass) == True else "input_boolean"

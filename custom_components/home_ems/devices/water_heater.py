@@ -19,6 +19,7 @@ class WaterHeater(Device):
         # Wait at least 10min after deactivation before activating it
         self.delay_min_after_deactivation = 10
         self.next_force_pv = datetime.now()
+        self.last_water_temperature = 30.0
 
     def logger_name(self):
         return "[water heater]"
@@ -32,7 +33,13 @@ class WaterHeater(Device):
     #
 
     def get_water_temperature(self):
-        return float(self.get_state("sensor", "middle_water_temperature"))
+        ret = 0.0
+        try:
+            ret = float(self.get_state("sensor", "middle_water_temperature"))
+        except ValueError:
+            ret = self.last_water_temperature
+        self.last_water_temperature = ret
+        return ret
 
     def set_wanted_temperature(self, value):
         if not config_dev(self.hass):
