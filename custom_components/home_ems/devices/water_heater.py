@@ -148,6 +148,8 @@ class WaterHeater(Device):
         if needed_temperature != self.needed_temperature:
             self.debug(f"set_temp:{needed_temperature}")
             self.needed_temperature = needed_temperature
+            if needed_temperature != CONF_WATER_HEATER_MAX_TEMP:
+                self.set_force_pv_hc(False)
             self.set_wanted_temperature(self.needed_temperature)
 
     def get_force_pv_hc(self):
