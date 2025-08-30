@@ -78,12 +78,13 @@ class WaterHeater(Device):
                 })
 
     def time_to_reach(self, value):
+        # Initial overhead: 120min
         # 10deg = 100min
         # 1deg = 10min
         need = value - self.get_water_temperature()
         if need < 0:
             return 0
-        return need * 10
+        return 120 + (need * 10)
 
     #
     #
