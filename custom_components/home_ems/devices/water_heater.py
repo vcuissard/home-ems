@@ -20,6 +20,7 @@ class WaterHeater(Device):
         self.delay_min_after_deactivation = 10
         self.next_force_pv_hc = datetime.now()
         self.last_water_temperature = 30.0
+        self.rule_6pm_active = False
 
     def logger_name(self):
         return "[water heater]"
@@ -129,7 +130,14 @@ class WaterHeater(Device):
         if self.get_water_temperature() < 55.0 and now.hour > 14 and now.hour < 18 and (ready.hour > 18 or ready.hour < 14):
             if self.get_needed_temperature() != CONF_WATER_HEATER_MAX_TEMP:
                 self.info(f"6pm rule: now it is time to boil water because we need {self.time_to_reach(CONF_WATER_HEATER_MAX_TEMP)} min")
+            self.rule_6pm_active = True
             return CONF_WATER_HEATER_MAX_TEMP
+        if self.rule_6pm_active:
+            if now.hour < 19:
+                return CONF_WATER_HEATER_MAX_TEMP
+            else:
+                self.info(f"6pm rule: done")
+                self.rule_6pm_active = False
 
         return CONF_WATER_HEATER_MIN_TEMP
 
@@ -182,6 +190,7 @@ class WaterHeater(Device):
         self.set_boost(0)
         config_water_heater_set_boost(self.hass, False)
         self.suspended = False
+        self.rule_6pm_active = False
 
     def should_activate(self):
         # Always ON
