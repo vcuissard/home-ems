@@ -26,7 +26,7 @@ class CRO(Device):
     def cro_get_power(self):
         ret = 0.0
         try:
-            ret = float(self.get_state("number" if not config_dev(self.hass) else "input_number", "power"))
+            ret = float(self.get_state("sensor" if not config_dev(self.hass) else "input_number", "power"))
         except ValueError:
             ret = self.last_cro_power
         self.last_cro_power = ret
@@ -38,7 +38,7 @@ class CRO(Device):
             self.hass,
             domain,
             f"turn_{'on' if status else 'off'}",
-            { "entity_id": f"{domain}.{self.entity}_charge_control" }
+            { "entity_id": f"{domain}.{self.entity}" }
         )
 
     def compute_max_available_power(self, power_phases):
