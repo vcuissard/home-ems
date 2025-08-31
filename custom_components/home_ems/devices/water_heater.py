@@ -79,13 +79,16 @@ class WaterHeater(Device):
                 })
 
     def time_to_reach(self, value):
-        # Initial overhead: 120min
+        # Initial overhead: 15min
         # 10deg = 100min
         # 1deg = 10min
         need = value - self.get_water_temperature()
         if need < 0:
             return 0
-        return 120 + (need * 10)
+        return 15 + (need * 10)
+
+    def close_to_max(self):
+        return self.get_water_temperature() >= min(60, self.needed_temperature)
 
     #
     #
@@ -110,7 +113,7 @@ class WaterHeater(Device):
             #
             if loadbalancer_instance(self.hass).linky.is_hc():
                 if now.hour >= 0 and now.hour < 8:
-                    if ready.hour > 7:
+                    if ready.hour > 7 and not self.close_to_max():
                         if self.get_needed_temperature() != CONF_WATER_HEATER_MAX_TEMP:
                             self.info(f"now it is time to boil water because we need {self.time_to_reach(CONF_WATER_HEATER_MAX_TEMP)} min")
                             self.set_force_pv_hc(True)
@@ -213,7 +216,7 @@ class WaterHeater(Device):
         return 0
 
     def update(self, power_phases):
-        if not self.suspended and self.get_water_temperature() >= min(60, self.needed_temperature):
+        if not self.suspended and self.close_to_max():
             self.set_force_pv_hc(False)
             self.set_needed_temperature(CONF_WATER_HEATER_MIN_TEMP)
             config_water_heater_set_forced(self.hass, False)

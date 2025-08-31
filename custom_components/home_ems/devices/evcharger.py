@@ -180,7 +180,7 @@ class EVCharger(Device):
     def still_needed(self):
         status = self.connector_status()
         if status != self.last_connector_status:
-            last_connector_status = status
+            self.last_connector_status = status
             if status == "SuspendedEV":
                 self.info("car stopped the charge, most likely full")
             if status == "Faulted":
