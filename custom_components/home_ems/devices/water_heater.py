@@ -113,7 +113,7 @@ class WaterHeater(Device):
             #
             if loadbalancer_instance(self.hass).linky.is_hc():
                 if now.hour >= 0 and now.hour < 8:
-                    if ready.hour > 7 and not self.close_to_max():
+                    if ready.hour >= 7 and not self.close_to_max():
                         if self.get_needed_temperature() != CONF_WATER_HEATER_MAX_TEMP:
                             self.info(f"now it is time to boil water because we need {self.time_to_reach(CONF_WATER_HEATER_MAX_TEMP)} min")
                             self.set_force_pv_hc(True)
