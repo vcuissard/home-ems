@@ -241,13 +241,10 @@ class EVCharger(Device):
             return CONF_EV_CHARGER_WAITING_TIME
         else:
             power_avail = self.compute_max_available_power(0, power_phases)
-            if power_avail >= self.get_min_power():
-                self.set_max_power(power_avail)
-                self.activate()
-                self.info(f"start charging @ {power_avail}W")
-                return CONF_EV_CHARGER_WAITING_TIME
-            else:
-                self.info(f"cannot charge because available power {power_avail}W s below {self.get_min_power()}W")
+            self.set_max_power(power_avail)
+            self.activate()
+            self.info(f"start charging @ {power_avail}W")
+            return CONF_EV_CHARGER_WAITING_TIME
         return 0
 
     def update(self, power_phases):
@@ -262,10 +259,6 @@ class EVCharger(Device):
             self.update_max_power()
             self.activate_first = False
             return CONF_EV_CHARGER_WAITING_TIME
-
-        # Nothing to be done if is_forced
-        if self.is_forced():
-            return 0
 
         # Need to check if we have enough
         new_power = self.compute_max_available_power(self.get_max_power(), power_phases)
