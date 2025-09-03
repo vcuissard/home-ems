@@ -36,7 +36,7 @@ class EVCharger(Device):
         return self.hass.states.get(f"switch.{self.entity}_availability").state == 'off'
 
     def start_transaction(self):
-        if self.connector_status() != "Preparing":
+        if self.connector_status() != "Preparing" and self.connector_status() != "Finishing":
             self.info(f"no need to start transation in state {self.connector_status()}")
             return
         domain = "switch" if not config_dev(self.hass) == True else "input_boolean"
