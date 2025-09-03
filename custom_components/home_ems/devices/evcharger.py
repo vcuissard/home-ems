@@ -36,6 +36,9 @@ class EVCharger(Device):
         return self.hass.states.get(f"switch.{self.entity}_availability").state == 'off'
 
     def start_transaction(self):
+        if self.connector_status() != "Preparing":
+            self.info(f"no need to start transation in state {self.connector_status()}")
+            return
         domain = "switch" if not config_dev(self.hass) == True else "input_boolean"
         call_async(
             self.hass,
@@ -56,7 +59,7 @@ class EVCharger(Device):
     def update_max_power(self):
         limit = self.max_power * 3
         self.info(f"update_max_power {limit}W")
-        if not config_dev(self.hass):            
+        if not config_dev(self.hass):
             # Prepare the data for the OCPP set_charge_rate service
             charging_profile = {
                 "chargingProfileId": 8,
@@ -103,9 +106,16 @@ class EVCharger(Device):
 
     def compute_max_available_power(self, power_max, power_phases):
 
-        # Max if HC/HP or is_forced        
-        if self.is_hc_hp or config_evcharger_hc(self.hass) or self.is_forced():
+        # if is_forced
+        if self.is_forced():
             return CONF_MAX_POWER_PER_PHASE
+
+        # HP/HC: disable if HP
+        if self.is_hc_hp or config_evcharger_hc(self.hass):
+            if loadbalancer_instance(self.hass).linky.is_hc():
+                return CONF_MAX_POWER_PER_PHASE
+            else:
+                return 0
 
         #
         # Check power import / export and max
@@ -118,7 +128,7 @@ class EVCharger(Device):
                             power_phases[2])
         else:
             # Mono
-            active_power = power_phases[get_phase(phases)]            
+            active_power = power_phases[get_phase(phases)]
 
         #
         # Compute max avail power
@@ -193,11 +203,6 @@ class EVCharger(Device):
             return False
         if self.is_forced():
             return True
-        if self.is_hc_hp or config_evcharger_hc(self.hass):
-            if not loadbalancer_instance(self.hass).linky.is_hc():
-                self.info(f"HP => deactivate")
-                self.can_auto_request = False
-                return False
         return config_evcharger_requested(self.hass)
 
     def should_activate(self):
@@ -220,7 +225,7 @@ class EVCharger(Device):
         # This is needed to avoid the need of clicking the button
         if self.cable_plugged() and not config_evcharger_requested(self.hass) and self.connector_status() == "Preparing" and self.can_auto_request:
             self.info("cable connected, automatically request charge")
-            config_evcharger_set_requested(self.hass, True)        
+            config_evcharger_set_requested(self.hass, True)
         if not self.should_activate():
             return 0
         if self.is_forced():
@@ -229,12 +234,11 @@ class EVCharger(Device):
             self.info(f"start charging (forced) @ {CONF_MAX_POWER_PER_PHASE}W")
             return CONF_EV_CHARGER_WAITING_TIME
         elif self.is_hc_hp or config_evcharger_hc(self.hass):
-            # If mode is HP/HC or requested to do HC, force it if HC
-            if loadbalancer_instance(self.hass).linky.is_hc():
-                self.info("activate due to HC")
-                self.set_max_power(CONF_MAX_POWER_PER_PHASE)
-                self.activate()
-                return CONF_EV_CHARGER_WAITING_TIME
+            # If mode is HP/HC activate it, power will be set according to HC/HP state
+            self.info("activate due to HC/HP mode")
+            self.set_max_power(self.compute_max_available_power(0, power_phases))
+            self.activate()
+            return CONF_EV_CHARGER_WAITING_TIME
         else:
             power_avail = self.compute_max_available_power(0, power_phases)
             if power_avail >= self.get_min_power():
@@ -259,12 +263,12 @@ class EVCharger(Device):
             self.activate_first = False
             return CONF_EV_CHARGER_WAITING_TIME
 
-        # Nothing to be done if HC/HP or is_forced        
-        if self.is_hc_hp or config_evcharger_hc(self.hass) or self.is_forced():
+        # Nothing to be done if is_forced
+        if self.is_forced():
             return 0
 
         # Need to check if we have enough
-        new_power = self.compute_max_available_power(self.get_max_power(), power_phases)        
+        new_power = self.compute_max_available_power(self.get_max_power(), power_phases)
         if new_power != self.get_max_power():
             self.set_max_power(new_power)
             return CONF_EV_CHARGER_WAITING_TIME

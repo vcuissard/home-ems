@@ -225,7 +225,15 @@ class WaterHeater(Device):
             self.suspended = True
             return CONF_WATER_HEATER_WAITING_TIME
 
-        if not self.is_hc_hp:
+        if self.is_hc_hp:
+            #
+            # HC/HP mode: need to set HC signal every 24h so ensure we set it once
+            #
+            now = datetime.now()
+            if self.next_force_pv_hc > now and now.hour > 4 and loadbalancer_instance(self.hass).linky.is_hc():
+                self.info("forcing HC signal to avoid alarms")
+                self.set_force_pv_hc(True)
+        else:
             #
             # Solar mode: manage pv signal
             #
@@ -252,6 +260,8 @@ class WaterHeater(Device):
         #
         if config_water_heater_boost(self.hass) and not self.boost > 0:
             self.set_boost(1)
+        elif self.boost > 0:
+            self.set_boost(0)
 
         #
         # Now we can update needed temperature
