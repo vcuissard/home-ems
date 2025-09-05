@@ -200,16 +200,19 @@ class EVCharger(Device):
                 self.suspend_ev_stop_timer = datetime.now() + timedelta(minutes=30)
             elif datetime.now() >= self.suspend_ev_stop_timer:
                 self.info("car stopped the charge 30min ago, most likely full (deactivate)")
+                self.no_delay = True
                 return False
         else:
             self.suspend_ev_stop_timer = None
         if status == "Faulted":
             self.info("fault, need to reset")
+            self.no_delay = True            
             # TODO
             return False
         if not self.cable_plugged():
             self.info("cable disconnected")
             self.can_auto_request = True
+            self.no_delay = True
             return False
         if self.is_forced():
             return True

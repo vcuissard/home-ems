@@ -15,6 +15,7 @@ class Device:
         self.next_possible_deactivation = datetime.now()
         self.delay_min_after_activation = 0
         self.delay_min_after_deactivation = 0
+        self.no_delay = False
 
     def late_init(self):
         self.is_hc_hp = config_loadbalancer_mode_is_hc_hp(self.hass)
@@ -48,7 +49,12 @@ class Device:
     def deactivate(self):
         self.active = False
         self.info("deactivate")
-        self.next_possible_activation = datetime.now() + timedelta(minutes=self.delay_min_after_deactivation)
+        if self.no_delay:
+            self.next_possible_activation = datetime.now()
+            self.next_possible_deactivation = datetime.now()
+            self.no_delay = False
+        else:
+            self.next_possible_activation = datetime.now() + timedelta(minutes=self.delay_min_after_deactivation)
 
     def should_activate(self):
         pass

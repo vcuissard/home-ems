@@ -11,6 +11,7 @@ class PoolHeater(Device):
         self.delay_min_after_activation = 30
         # Wait at least 30min after deactivation before activating it
         self.delay_min_after_deactivation = 30
+        self.last_pool_water_temp = 0
 
     def logger_name(self):
         return "[pool heater]"
@@ -20,7 +21,13 @@ class PoolHeater(Device):
     #
 
     def pool_water_temperature(self):
-        return float(self.hass.states.get(f"sensor.{CONF_POOL_ID}_temp_water").state)
+        ret = 0.0
+        try:
+            ret = float(self.hass.states.get(f"sensor.{CONF_POOL_ID}_temp_water").state)
+        except ValueError:
+            ret = self.last_pool_water_temp
+        self.last_pool_water_temp = ret
+        return ret
 
     def min_temperature(self):
         now = datetime.now()
