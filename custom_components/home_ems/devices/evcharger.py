@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 from .device import Device
 from ..utils import *
 
@@ -16,6 +17,7 @@ class EVCharger(Device):
         self.delay_min_after_deactivation = 10
         self.last_connector_status = ""
         self.activate_first = False
+        self.suspend_ev_stop_timer = None
 
     def logger_name(self):
         return "[evcharger]"
@@ -170,6 +172,12 @@ class EVCharger(Device):
             self.phases = CONF_EV_CHARGER_PHASE_MONO
         return super().get_phases()
 
+    def can_activate(self):
+        if self.is_forced():
+            return True
+        else:
+            return super().can_activate()
+
     def activate(self):
         super().activate()
         self.can_auto_request = False
@@ -186,17 +194,25 @@ class EVCharger(Device):
         self.max_power = 0
         self.update_max_power()
         self.activate_first = False
+        self.suspend_ev_stop_timer = None
 
     def still_needed(self):
         status = self.connector_status()
         if status != self.last_connector_status:
             self.last_connector_status = status
-            if status == "SuspendedEV":
+        if status == "SuspendedEV":
+            if self.suspend_ev_stop_timer == None:
                 self.info("car stopped the charge, most likely full")
-            if status == "Faulted":
-                self.info("fault, need to reset")
-                # TODO
+                self.suspend_ev_stop_timer = datetime.now() + timedelta(minutes=30)
+            elif datetime.now() >= self.suspend_ev_stop_timer:
+                self.info("car stopped the charge 30min ago, most likely full (deactivate)")
                 return False
+        else:
+            self.suspend_ev_stop_timer = None
+        if status == "Faulted":
+            self.info("fault, need to reset")
+            # TODO
+            return False
         if not self.cable_plugged():
             self.info("cable disconnected")
             self.can_auto_request = True

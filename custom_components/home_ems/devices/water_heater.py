@@ -230,7 +230,7 @@ class WaterHeater(Device):
             # HC/HP mode: need to set HC signal every 24h so ensure we set it once
             #
             now = datetime.now()
-            if self.next_force_pv_hc > now and now.hour > 4 and loadbalancer_instance(self.hass).linky.is_hc():
+            if self.next_force_pv_hc > now and now.hour > 4 and loadbalancer_instance(self.hass).linky.is_hc() and not self.get_force_pv_hc():
                 self.info("forcing HC signal to avoid alarms")
                 self.set_force_pv_hc(True)
         else:
