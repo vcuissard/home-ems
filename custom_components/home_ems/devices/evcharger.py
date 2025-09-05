@@ -172,12 +172,6 @@ class EVCharger(Device):
             self.phases = CONF_EV_CHARGER_PHASE_MONO
         return super().get_phases()
 
-    def can_activate(self):
-        if self.is_forced():
-            return True
-        else:
-            return super().can_activate()
-
     def activate(self):
         super().activate()
         self.can_auto_request = False

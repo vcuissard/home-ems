@@ -57,7 +57,7 @@ class Device:
         if self.active:
             # Already active
             return False
-        if datetime.now() < self.next_possible_activation:
+        if not self.is_forced() and datetime.now() < self.next_possible_activation:
             # Not allowed - need to wait a minimum amount of time before reactivation
             if config_dev(self.hass):
                 self.debug("to early to activate")
@@ -78,7 +78,7 @@ class Device:
         return True
 
     def is_forced(self):
-        pass
+        return False
 
     def is_active(self):
         return self.active
