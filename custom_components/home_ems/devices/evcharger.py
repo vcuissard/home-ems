@@ -26,6 +26,7 @@ class EVCharger(Device):
         super().late_init()
         self.stop_transaction()
         self.update_max_power()
+        config_evcharger_set_tri(self.hass, True)
 
     #
     # Charger management
@@ -181,7 +182,7 @@ class EVCharger(Device):
     def deactivate(self):
         super().deactivate()
         config_evcharger_set_forced(self.hass, False)
-        config_evcharger_set_tri(self.hass, False)
+        config_evcharger_set_tri(self.hass, True)
         config_evcharger_set_hc(self.hass, False)
         config_evcharger_set_requested(self.hass, False)
         self.stop_transaction()
@@ -236,7 +237,7 @@ class EVCharger(Device):
             config_evcharger_set_requested(self.hass, False)
         # First, check if we need to force the request
         # This is needed to avoid the need of clicking the button
-        if self.cable_plugged() and not config_evcharger_requested(self.hass) and self.connector_status() == "Preparing" and self.can_auto_request:
+        if self.cable_plugged() and not config_evcharger_requested(self.hass) and (self.connector_status() == "Preparing" or self.connector_status() == "SuspendedEVSE") and self.can_auto_request:
             self.info("cable connected, automatically request charge")
             config_evcharger_set_requested(self.hass, True)
         if not self.should_activate():
