@@ -35,7 +35,7 @@ class EVCharger(Device):
         return self.hass.states.get(f"sensor.{self.entity}_status_connector").state
 
     def cable_plugged(self):
-        return self.hass.states.get(f"switch.{self.entity}_availability").state == 'off'
+        return self.connector_status() != "Available"
 
     def start_transaction(self):
         if self.connector_status() != "Preparing" and self.connector_status() != "Finishing":

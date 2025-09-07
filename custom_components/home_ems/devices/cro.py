@@ -26,7 +26,7 @@ class CRO(Device):
     def cro_get_power(self):
         ret = 0.0
         try:
-            ret = float(self.get_state("sensor" if not config_dev(self.hass) else "input_number", "power"))
+            ret = float(self.get_state("sensor" if not config_dev(self.hass) else "input_number", "tpl_power"))
         except ValueError:
             ret = self.last_cro_power
         self.last_cro_power = ret
@@ -85,7 +85,8 @@ class CRO(Device):
         self.max_power = 0
 
     def still_needed(self):
-        if self.cro_get_power() <= 0:
+        if self.cro_get_power() < 10:
+            config_cro_set_requested(self.hass, False)
             return False
         if self.is_forced():
             return True
@@ -106,9 +107,6 @@ class CRO(Device):
     #
 
     def activate_if(self, power_phases):
-        if not config_dev(self.hass):
-            # Not prod ready
-            return False
         if not self.should_activate():
             return 0
         if self.is_forced():
@@ -138,7 +136,6 @@ class CRO(Device):
         if not self.still_needed() and self.can_deactivate():
             self.info(f"no longer needed, deactivate")
             self.deactivate()
-            config_cro_set_requested(self.hass, False)
             return CONF_CRO_WAITING_TIME
 
         # Nothing to be done if HC/HP or is_forced        
