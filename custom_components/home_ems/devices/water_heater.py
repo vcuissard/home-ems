@@ -208,14 +208,14 @@ class WaterHeater(Device):
     # Interface with LoadBalancer
     #
 
-    def activate_if(self, power_phases):
+    def activate_if(self, power):
         # Always ON
         if not self.is_active():
             self.activate()
             return CONF_WATER_HEATER_WAITING_TIME
         return 0
 
-    def update(self, power_phases):
+    def update(self, power):
         if not self.suspended and self.close_to_max():
             self.set_force_pv_hc(False)
             self.set_needed_temperature(CONF_WATER_HEATER_MIN_TEMP)
@@ -237,13 +237,11 @@ class WaterHeater(Device):
             #
             # Solar mode: manage pv signal
             #
-            phases = self.get_phases()
-            # Mono only
-            power = power_phases[get_phase(phases)]
+
             #
             # Check import/export status
             #
-            if power > 3000 and self.get_force_pv_hc():
+            if power > 1000 and self.get_force_pv_hc():
                 # If we import too much let's remove the force pv signal
                 # This will stop water heater only in 30min (Aeromax 5)
                 self.info(f"disable pv/hc - importing to much")

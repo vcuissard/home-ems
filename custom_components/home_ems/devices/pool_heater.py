@@ -48,14 +48,13 @@ class PoolHeater(Device):
 
     def should_activate(self):
         temp = self.pool_water_temperature()
-        return self.can_activate() and temp < self.min_temperature()
+        return False and self.can_activate() and temp < self.min_temperature()
 
-    def activate_if(self, power_phases):
+    def activate_if(self, power):
         if self.should_activate():
             # Need to check if we have enough
             phases = self.get_phases()
             # Mono only
-            power = power_phases[get_phase(phases)]
             if power < 0 and abs(power) >= self.get_min_power():
                 self.activate()
                 self.info(f"start (available: {abs(power)}W)")
@@ -67,7 +66,7 @@ class PoolHeater(Device):
                 return CONF_POOL_HEATER_WAITING_TIME
         return 0
 
-    def update(self, power_phases):
+    def update(self, power):
         if self.pool_water_temperature() >= self.min_temperature():
             self.count_above += 1
         else:

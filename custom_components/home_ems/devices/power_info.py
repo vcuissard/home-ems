@@ -9,5 +9,5 @@ class PowerInfo(Device):
     def logger_name(self):
         return "[power info]"
 
-    def get_phases_power(self):
-        return [ 0.0, 0.0, 0.0 ]
+    def get_power(self):
+        return 0.0

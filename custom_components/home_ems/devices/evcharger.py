@@ -60,7 +60,7 @@ class EVCharger(Device):
         )
 
     def update_max_power(self):
-        limit = self.max_power * 3
+        limit = self.max_power
         self.info(f"update_max_power {limit}W")
         if not config_dev(self.hass):
             # Prepare the data for the OCPP set_charge_rate service
@@ -107,46 +107,43 @@ class EVCharger(Device):
         else:
             self.max_power = max_power
 
-    def compute_max_available_power(self, power_max, power_phases):
+    def system_max_power(self):
+        if config_evcharger_is_tri(self.hass):
+            return 3 * CONF_MAX_POWER_PER_PHASE
+        else:
+            return CONF_MAX_POWER_PER_PHASE
+
+    def compute_max_available_power(self, power_max, power):
 
         # if is_forced
         if self.is_forced():
-            return CONF_MAX_POWER_PER_PHASE
+            return self.system_max_power()
 
         # HP/HC: disable if HP
-        if self.is_hc_hp or config_evcharger_hc(self.hass):
+        if self.is_hc_hp:
             if loadbalancer_instance(self.hass).linky.is_hc():
-                return CONF_MAX_POWER_PER_PHASE
+                return self.system_max_power()
             else:
                 return 0
+
+        # Force HC in solar mode
+        if config_evcharger_hc(self.hass) and loadbalancer_instance(self.hass).linky.is_hc():
+            return self.system_max_power()
 
         #
         # Check power import / export and max
         #
-        phases = self.get_phases()
-        if phases == 0x7:
-            # Tri
-            active_power = max(power_phases[0],
-                            power_phases[1],
-                            power_phases[2])
-        else:
-            # Mono
-            active_power = power_phases[get_phase(phases)]
 
-        #
-        # Compute max avail power
-        #
-
-        new_power = power_max - int(active_power)
+        new_power = power_max - power
 
         #
         # Here we check for update which means we need to include current power
         # and check if we import energy from grids
         #
-        if active_power > 0:
-            # So we import in one of the used phase, let's reduce current offered power
+        if power > 0:
+            # So we import from grid, let's reduce current offered power
             if self.get_max_power() != 0:
-                self.debug(f"importing {active_power}W -> reduce offered power")
+                self.debug(f"importing {power}W -> reduce offered power")
 
         if new_power < self.get_min_power():
             if self.get_max_power() != 0:
@@ -157,10 +154,11 @@ class EVCharger(Device):
         # bouncing
         delta = abs(power_max - new_power)
         if delta <= CONF_EV_CHARGER_MIN_DELTA:
-            self.debug(f"delta ({delta}W) is too small => do not react")
+            self.debug(f"delta({delta}W) current({power_max}W) avail({power}W)   is too small => do not react")
             return power_max
 
-        return min(new_power, CONF_MAX_POWER_PER_PHASE)
+
+        return min(new_power, self.system_max_power())
 
     #
     # Logic
@@ -229,7 +227,7 @@ class EVCharger(Device):
     # Interface with LoadBalancer
     #
 
-    def activate_if(self, power_phases):
+    def activate_if(self, power):
         # First, check if cable is unplugged, means we can auto request next one
         if not self.cable_plugged() and not self.can_auto_request:
             self.can_auto_request = True
@@ -243,25 +241,18 @@ class EVCharger(Device):
         if not self.should_activate():
             return 0
         if self.is_forced():
-            self.set_max_power(CONF_MAX_POWER_PER_PHASE)
+            self.set_max_power(system_max_power())
             self.activate()
-            self.info(f"start charging (forced) @ {CONF_MAX_POWER_PER_PHASE}W")
-            return CONF_EV_CHARGER_WAITING_TIME
-        elif self.is_hc_hp or config_evcharger_hc(self.hass):
-            # If mode is HP/HC activate it, power will be set according to HC/HP state
-            self.info("activate due to HC/HP mode")
-            self.set_max_power(self.compute_max_available_power(0, power_phases))
-            self.activate()
+            self.info(f"start charging (forced) @ {system_max_power()}W")
             return CONF_EV_CHARGER_WAITING_TIME
         else:
-            power_avail = self.compute_max_available_power(0, power_phases)
-            self.set_max_power(power_avail)
+            self.set_max_power(self.compute_max_available_power(0, power))
+            self.info(f"start charging @ {self.max_power}W")
             self.activate()
-            self.info(f"start charging @ {power_avail}W")
             return CONF_EV_CHARGER_WAITING_TIME
         return 0
 
-    def update(self, power_phases):
+    def update(self, power):
         if not self.still_needed() and self.can_deactivate():
             self.info(f"no longer needed, deactivate")
             self.deactivate()
@@ -275,7 +266,7 @@ class EVCharger(Device):
             return CONF_EV_CHARGER_WAITING_TIME
 
         # Need to check if we have enough
-        new_power = self.compute_max_available_power(self.get_max_power(), power_phases)
+        new_power = self.compute_max_available_power(self.get_max_power(), power)
         if new_power != self.get_max_power():
             self.set_max_power(new_power)
             return CONF_EV_CHARGER_WAITING_TIME
