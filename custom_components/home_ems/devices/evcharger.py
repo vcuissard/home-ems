@@ -9,7 +9,7 @@ class EVCharger(Device):
         self.entity = entity
         self.phases = phases
         self.max_power = 0
-        self.min_power = CONF_EV_CHARGER_MIN_POWER
+        self.min_power = CONF_EV_CHARGER_MIN_POWER_TRI
         self.can_auto_request = True
         # Wait at least 10min after activation before deactivating it
         self.delay_min_after_activation = 10
@@ -27,6 +27,12 @@ class EVCharger(Device):
         self.stop_transaction()
         self.update_max_power()
         config_evcharger_set_tri(self.hass, True)
+
+    def get_min_power(self):
+        if config_evcharger_is_tri(self.hass):
+            return CONF_EV_CHARGER_MIN_POWER_TRI
+        else:
+            return CONF_EV_CHARGER_MIN_POWER_MONO
 
     #
     # Charger management
@@ -150,7 +156,7 @@ class EVCharger(Device):
                     self.info("new power based on 5min stat is too low => suspend charge")
                     new_power = 0
                 else:
-                    new_power = CONF_EV_CHARGER_MIN_POWER
+                    new_power = self.get_min_power()
             else:
                 new_power = 0
             return min(new_power, CONF_MAX_POWER_PER_PHASE)
