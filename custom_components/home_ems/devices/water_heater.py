@@ -241,13 +241,7 @@ class WaterHeater(Device):
             #
             # Check import/export status
             #
-            if power > 1000 and self.get_force_pv_hc():
-                # If we import too much let's remove the force pv signal
-                # This will stop water heater only in 30min (Aeromax 5)
-                self.info(f"disable pv/hc - importing to much")
-                self.set_force_pv_hc(False)
-                return CONF_WATER_HEATER_WAITING_TIME
-            elif not self.get_force_pv_hc() and self.can_force_pv_hc() and power < 0 and abs(power) >= self.get_max_power():
+            if not self.get_force_pv_hc() and self.can_force_pv_hc() and power < 0 and abs(power) >= self.get_max_power():
                 # We have now enough solar production, let's raise PV/HC signal. (once per day)
                 self.set_force_pv_hc(True)
                 self.info(f"force pv")

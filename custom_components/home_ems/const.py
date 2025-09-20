@@ -12,7 +12,7 @@ CONF_WATER_HEATER_MAX_TEMP = 62
 # External IDs
 CONF_WATER_HEATER_ID = "chauffe_eau"
 CONF_LINKY_ID = "tic"
-CONF_ENHPASE_ID = "envoy_482434012220"
+CONF_ENHPASE_ID = "enphase"
 CONF_EV_CHARGER_ID = "charger"
 CONF_CRO_ID = "cro"
 CONF_POOL_ID = "pipool"

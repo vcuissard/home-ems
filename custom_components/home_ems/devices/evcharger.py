@@ -143,18 +143,28 @@ class EVCharger(Device):
         if power > 0:
             # So we import from grid, let's reduce current offered power
             if self.get_max_power() != 0:
-                self.debug(f"importing {power}W -> reduce offered power")
+                self.debug(f"importing {power}W -> may need to reduce offered power")
 
         if new_power < self.get_min_power():
             if self.get_max_power() != 0:
-                self.info("new available power is below min => suspend charge")
-            new_power = 0
+                # Need to check the 5min power to not stop the charge due to a short
+                # import. If this is the case let's reduce to min power
+                power_5min = loadbalancer_instance(self.hass).enphase.get_power_5min()
+                if power_max - power_5min < self.get_min_power():
+                    self.info("new power based on 5min stat is too low => suspend charge")
+                    new_power = 0
+                else:
+                    new_power = CONF_EV_CHARGER_MIN_POWER
+            else:
+                new_power = 0
+            return min(new_power, self.system_max_power())
 
         # We do not want to update if delta is too small to avoid
         # bouncing
         delta = abs(power_max - new_power)
         if delta <= CONF_EV_CHARGER_MIN_DELTA:
-            self.debug(f"delta({delta}W) current({power_max}W) avail({power}W)   is too small => do not react")
+            if power_max > 0:
+                self.debug(f"delta({delta}W) current({power_max}W) avail({power}W) is too small => do not react")
             return power_max
 
 
@@ -259,7 +269,7 @@ class EVCharger(Device):
             return CONF_EV_CHARGER_WAITING_TIME
 
         # Ensure power was sent
-        if self.activate_first:
+        if self.activate_first and self.get_max_power() != 0:
             self.info(f"charger is in {self.connector_status()} state after activation => set power")
             self.update_max_power()
             self.activate_first = False
