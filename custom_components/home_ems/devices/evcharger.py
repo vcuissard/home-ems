@@ -18,6 +18,9 @@ class EVCharger(Device):
         self.last_connector_status = ""
         self.activate_first = False
         self.suspend_ev_stop_timer = None
+        self.tri_detected = None
+        self.last_power_active_import = 0.0
+        self.last_power_active_offered = 0.0
 
     def logger_name(self):
         return "[evcharger]"
@@ -26,13 +29,16 @@ class EVCharger(Device):
         super().late_init()
         self.stop_transaction()
         self.update_max_power()
-        config_evcharger_set_tri(self.hass, True)
+        config_evcharger_set_tri(self.hass, False)
 
     def get_min_power(self):
-        if config_evcharger_is_tri(self.hass):
+        if self.is_tri():
             return CONF_EV_CHARGER_MIN_POWER_TRI
         else:
             return CONF_EV_CHARGER_MIN_POWER_MONO
+
+    def is_tri(self):
+        return self.tri_detected != None and self.tri_detected
 
     #
     # Charger management
@@ -43,6 +49,24 @@ class EVCharger(Device):
 
     def cable_plugged(self):
         return self.connector_status() != "Available"
+
+    def power_imported(self):
+        ret = 0.0
+        try:
+            ret = float(self.get_state("sensor", "power_active_import"))
+        except ValueError:
+            ret = self.last_power_active_import
+        self.last_power_active_import = ret
+        return ret
+
+    def power_offered(self):
+        ret = 0.0
+        try:
+            ret = float(self.get_state("sensor", "power_offered"))
+        except ValueError:
+            ret = self.last_power_active_offered
+        self.last_power_active_offered = ret
+        return ret        
 
     def start_transaction(self):
         if self.connector_status() != "Preparing" and self.connector_status() != "Finishing":
@@ -67,7 +91,7 @@ class EVCharger(Device):
 
     def update_max_power(self):
         limit = self.max_power
-        if not config_evcharger_is_tri(self.hass):
+        if not self.is_tri():
             limit *= 3
         self.info(f"update_max_power {limit}W")
         if not config_dev(self.hass):
@@ -152,8 +176,8 @@ class EVCharger(Device):
                 # Need to check the 5min power to not stop the charge due to a short
                 # import. If this is the case let's reduce to min power
                 power_5min = loadbalancer_instance(self.hass).enphase.get_power_5min()
-                if power_max - power_5min < self.get_min_power():
-                    self.info("new power based on 5min stat is too low => suspend charge")
+                if power_max - power_5min < (self.get_min_power() / 2):
+                    self.info(f"new power based on 5min stat is too low (avail:{power_max - power_5min} min/2:{self.get_min_power() / 2}) => suspend charge")
                     new_power = 0
                 else:
                     new_power = self.get_min_power()
@@ -187,12 +211,13 @@ class EVCharger(Device):
         super().activate()
         self.can_auto_request = False
         self.activate_first = True
+        self.tri_detected = None
         self.start_transaction()
 
     def deactivate(self):
         super().deactivate()
         config_evcharger_set_forced(self.hass, False)
-        config_evcharger_set_tri(self.hass, True)
+        config_evcharger_set_tri(self.hass, False)
         config_evcharger_set_hc(self.hass, False)
         config_evcharger_set_requested(self.hass, False)
         self.stop_transaction()
@@ -200,6 +225,7 @@ class EVCharger(Device):
         self.update_max_power()
         self.activate_first = False
         self.suspend_ev_stop_timer = None
+        self.tri_detected = None
 
     def still_needed(self):
         status = self.connector_status()
@@ -217,9 +243,7 @@ class EVCharger(Device):
             self.suspend_ev_stop_timer = None
         if status == "Faulted":
             self.info("fault, need to reset")
-            self.no_delay = True            
-            # TODO
-            return False
+            return True
         if not self.cable_plugged():
             self.info("cable disconnected")
             self.can_auto_request = True
@@ -256,12 +280,12 @@ class EVCharger(Device):
             self.set_max_power(CONF_MAX_POWER_PER_PHASE)
             self.activate()
             self.info(f"start charging (forced) @ {CONF_MAX_POWER_PER_PHASE}W")
-            return CONF_EV_CHARGER_WAITING_TIME
+            return CONF_EV_CHARGER_PRE_TIME
         else:
             self.set_max_power(self.compute_max_available_power(0, power))
             self.info(f"start charging @ {self.max_power}W")
             self.activate()
-            return CONF_EV_CHARGER_WAITING_TIME
+            return CONF_EV_CHARGER_PRE_TIME
         return 0
 
     def update(self, power):
@@ -277,10 +301,23 @@ class EVCharger(Device):
             self.activate_first = False
             return CONF_EV_CHARGER_WAITING_TIME
 
+        if self.tri_detected == None and self.power_imported() > 1.0:
+            mono = self.power_imported() <= (self.power_offered() / 2)
+            if mono:
+                self.tri_detected = False
+                self.info("car is detected to use MONO")
+            else:
+                self.tri_detected = True
+                config_evcharger_set_tri(self.hass, True)
+                self.info("car is detected to use TRI")
+                new_power = self.compute_max_available_power(self.get_max_power(), power)
+                self.set_max_power(new_power)
+                self.update_max_power()
+                return CONF_EV_CHARGER_WAITING_TIME
+
         # Need to check if we have enough
         new_power = self.compute_max_available_power(self.get_max_power(), power)
         if new_power != self.get_max_power():
             self.set_max_power(new_power)
             return CONF_EV_CHARGER_WAITING_TIME
-
         return 0
