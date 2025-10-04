@@ -295,7 +295,7 @@ class EVCharger(Device):
             return CONF_EV_CHARGER_WAITING_TIME
 
         if self.tri_detected == None and self.power_imported() > 1.0:
-            mono = self.power_imported() >= 6.5
+            mono = self.power_imported() < 6.5
             if mono:
                 self.tri_detected = False
                 self.info("car is detected to use MONO")
