@@ -276,17 +276,10 @@ class EVCharger(Device):
             config_evcharger_set_requested(self.hass, True)
         if not self.should_activate():
             return 0
-        if self.is_forced():
-            self.set_max_power(CONF_MAX_POWER_PER_PHASE)
-            self.activate()
-            self.info(f"start charging (forced) @ {CONF_MAX_POWER_PER_PHASE}W")
-            return CONF_EV_CHARGER_PRE_TIME
-        else:
-            self.set_max_power(self.compute_max_available_power(0, power))
-            self.info(f"start charging @ {self.max_power}W")
-            self.activate()
-            return CONF_EV_CHARGER_PRE_TIME
-        return 0
+        self.set_max_power(CONF_MAX_POWER_PER_PHASE)
+        self.activate()
+        self.info(f"start charging")
+        return CONF_EV_CHARGER_PRE_TIME
 
     def update(self, power):
         if not self.still_needed() and self.can_deactivate():
@@ -302,7 +295,7 @@ class EVCharger(Device):
             return CONF_EV_CHARGER_WAITING_TIME
 
         if self.tri_detected == None and self.power_imported() > 1.0:
-            mono = self.power_imported() <= (self.power_offered() / 2)
+            mono = self.power_imported() >= 6.5
             if mono:
                 self.tri_detected = False
                 self.info("car is detected to use MONO")

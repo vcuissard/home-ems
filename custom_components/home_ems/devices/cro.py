@@ -71,16 +71,15 @@ class CRO(Device):
     def deactivate(self):
         super().deactivate()
         self.cro_set_status(False)
-        config_cro_set_forced(self.hass, False)
-        config_cro_set_hc(self.hass, False)
-        config_cro_set_requested(self.hass, False)
-        if not self.is_hc_hp:
-            self.next_auto_activation = datetime.now() + self.auto_activation_delta
+#        if not self.is_hc_hp:
+#            self.next_auto_activation = datetime.now() + self.auto_activation_delta
         self.max_power = 0
 
     def still_needed(self, power):
         if self.cro_get_power() < 10:
             config_cro_set_requested(self.hass, False)
+            config_cro_set_forced(self.hass, False)
+            config_cro_set_hc(self.hass, False)
             return False
         if self.is_forced():
             return True
@@ -95,8 +94,8 @@ class CRO(Device):
         return config_cro_requested(self.hass)
 
     def should_activate(self):
-        if not self.is_hc_hp and datetime.now() > self.next_auto_activation:
-            config_cro_set_requested(self.hass, True)
+#        if not self.is_hc_hp and datetime.now() > self.next_auto_activation:
+#            config_cro_set_requested(self.hass, True)
         return self.can_activate() and config_cro_requested(self.hass)
 
     def is_forced(self):
